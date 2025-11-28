@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Email Template Editor</title>
+  <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+    .header { background: #1a73e8; color: white; padding: 16px 24px; font-size: 20px; font-weight: 600; }
+    .toolbar { padding: 16px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; gap: 12px; flex-wrap: wrap; }
+    button { padding: 8px 16px; border: none; background: #1a73e8; color: white; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #0d47a1; }
+    button.secondary { background: #5f6368; }
+    .editor-row { display: flex; gap: 16px; height: calc(100vh - 200px); }
+    .editor, .preview { flex: 1; padding: 16px; overflow: auto; }
+    .editor { border-right: 1px solid #ddd; }
+    iframe { width: 100%; height: 100%; border: none; background: white; }
+    .status { padding: 12px 24px; background: #e8f5e9; color: #0d6c2d; font-size: 14px; text-align: center; display: none; }
+    .placeholder { color: #aaa; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">Email Template Editor</div>
+    
+    <div class="toolbar">
+      <button onclick="loadTemplate()">Load Template</button>
+      <button onclick="saveTemplate()">Save & Use in Mailer</button>
+      <button class="secondary" onclick="clearEditor()">Clear</button>
+      <button class="secondary" onclick="insertPlaceholder()">Insert {{name}}</button>
+    </div>
+
+    <div class="editor-row">
+      <div class="editor">
+        <div id="editor" class="placeholder">Start typing your email...</div>
+      </div>
+      <div class="preview">
+        <iframe id="preview"></iframe>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    tinymce.init({
+      selector: '#editor',
+      height: '100%',
+      menubar: false,
+      plugins: 'lists link image table code fullscreen',
+      toolbar: 'undo redo | formatselect | bold italic underline | bullist numlist | link image table | code fullscreen',
+      content_style: "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }",
+      setup: (editor) => {
+        editor.on('keyup change', () => updatePreview());
+      }
+    });
+
+    function updatePreview() {
+      const content = tinymce.get('editor').getContent();
+      const iframe = document.getElementById('preview');
+      iframe.contentDocument.body.innerHTML = content;
+    }
+
+    function showStatus(msg, isError = false) {
+      const status = document.getElementById('status');
+      status.textContent = msg;
+      status.style.background = isError ? '#fce4e4' : '#e8f5e9';
+      status.style.color = isError ? '#c53030' : '#0d6c2d';
+      status.style.display = 'block';
+      setTimeout(() => status.style.display = 'none', 3000);
+    }
+
+    function saveTemplate() {
+      const content = tinymce.get('editor').getContent();
+      if (!content.trim()) {
+        showStatus("Error: Template is empty!", true);
+        return;
+      }
+
+      const blob = new Blob([content], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'welcome.html';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      // Auto-save to letters/ folder via prompt
+      const savePath = prompt("Save to letters/welcome.html?\nEnter 'yes' to confirm:", "yes");
+      if (savePath && savePath.toLowerCase() === 'yes') {
+        // In real use, you'd send to a backend. Here we just notify.
+        showStatus("Success: Template ready! Place welcome.html in letters/ folder.");
+      }
+    }
+
+    function loadTemplate() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.html';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          tinymce.get('editor').setContent(ev.target.result);
+          updatePreview();
+          showStatus(`Loaded: ${file.name}`);
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    function clearEditor() {
+      if (confirm("Clear all content?")) {
+        tinymce.get('editor').setContent('');
+        updatePreview();
+      }
+    }
+
+    function insertPlaceholder() {
+      tinymce.get('editor').execCommand('mceInsertContent', false, '{{name}}');
+    }
+
+    // Init
+    setTimeout(updatePreview, 500);
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "HTML_LETTER_PATH": "letters/welcome.html",
+  "CSV_LIST_PATH": "lists/subscribers.csv",
+  "ATTACHMENT_PATHS": [],
+  "ENABLE_ATTACHMENTS": false,
+  "ENABLE_QR_CODE": false,
+  "EMAIL_SUBJECT": "",
+  "SENDER_EMAIL": "",
+  "SMTP_HOST": "",
+  "SMTP_PORT": "",
+  "SMTP_USER": "",
+  "SMTP_PASS": "",
+  "PROXY_HOST": "",
+  "PROXY_PORT": "",
+  "PROXY_USER": "",
+  "PROXY_PASS": "",
+  "TRACKING_BASE_URL": "",
+  "DELAY_BETWEEN_EMAILS": 1.5,
+  "MAX_THREADS": 5,
+  "BATCH_SIZE": 0
+}
