@@ -1,97 +1,110 @@
-═══════════════════════════════════════════════════════════
-  Advanced SOCKS5 Email Sender with Full GUI
-           (Tor / Residential Proxies / Any SMTP)
-                Built By IDEYWITHU
-═══════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════
+           JOKEMAN MAILER – FULL FUNCTIONS & FEATURES GUIDE
+══════════════════════════════════════════════════════════
 
-What this program actually does
-────────────────────────────────────────────────────
-This is a complete bulk/mail-merge email tool that forces EVERY single email
-through a SOCKS5 proxy (Tor, Luminati, 911.re, Sock5 residential pools, etc.).
-That means:
-• Your real IP is hidden
-• You can rotate thousands of proxies if you want
-• Gmail / Outlook / Yahoo / custom SMTP — all work the same
-• Full drag & drop GUI — no command-line needed after first setup
-• Send personalised HTML emails with attachments to thousands of recipients
+1. MAIN SCRIPT TO RUN
+   → python3 gui_mailer.py
+   This opens the full drag & drop GUI (best way)
 
-Perfect for newsletters, outreach, notifications — while staying anonymous.
+2. CORE FILES & WHAT THEY DO
+   gui_mailer.py          → Main GUI + sending engine
+   send_via_socks5.py     → Core sending function (SOCKS5 + SMTP)
+   find_sender_emails.py  → Auto-grab sender emails from text/files
+   editor.html            → Built-in HTML letter editor (double-click to open)
+   config.json            → Stores all your senders & proxies (auto-created)
 
-Features in detail
-──────────────────
-✓ Send through any SOCKS5 proxy → 127.0.0.1:9050 (Tor) or any paid proxy
-✓ Unlimited sender accounts (add as many as you want in config)
-✓ Load recipient lists → just one email per line in /lists/yourlist.txt
-✓ HTML email templates → put your .html files in /letters folder (images auto embedded or remote)
-✓ Attachments → drag & drop files or whole folders into the window
-✓ Random delay between emails (avoids spam filters)
-✓ Rotate proxies automatically if you put multiple in config
-✓ Full logging → every sent email is saved in /logs with timestamp
-✓ QR code backup of your entire config (scan with phone if you lose the file)
-✓ Works on Windows, macOS and Linux without changing anything
+3. HOW TO ADD SMTP + SOCKS5 PROXY (First time setup)
+   In GUI → Click "Add Sender" → Fill:
+   • Sender Name        : Anything (e.g. "Gmail 1")
+   • SMTP Server         : smtp.gmail.com / smtp-mail.outlook.com / etc.
+   • Port                : 587 (TLS) or 465 (SSL)
+   • Email               : yourreal@gmail.com
+   • Password            : App Password (Gmail) or real password
+   • SOCKS5 Proxy Host   : 127.0.0.1          ← Tor
+                         : or 123.45.67.89    ← paid/residential proxy
+   • SOCKS5 Port         : 9050 (Tor) or 1080 (most proxies)
+   → Click "Save & Test" → Green = working!
 
-Folder structure explained
-──────────────────────────
-attachments/      → put files here OR drag them directly into the GUI
-letters/          → your HTML templates (example_letter.html etc.)
-lists/            → your recipient lists (one email per line)
-logs/             → automatically created — every sent mail is logged here
-qr_codes/         → your config backup as QR code (super useful)
-config.json       → created on first run — contains all your settings
+   You can add unlimited senders & proxies → it rotates automatically.
 
-First-time installation (30 seconds)
-────────────────────────────────────
-1. Install Python from https://python.org (tick “Add to PATH”)
-2. Unzip this folder anywhere
-3. Open terminal / command prompt in this folder
-4. Run once:
-   pip install -r requirements.txt
-   (this installs only 4 small packages — works on Windows & Mac)
+4. FOLDERS – WHERE TO PUT YOUR STUFF
+   letters/               → Put your HTML templates here (.html files)
+   lists/                → One recipient per line OR Name,Email
+   attachments/           → Files to attach OR drag directly into GUI
 
-How to run the program
-──────────────────────
-Just double-click run.bat (Windows)  
-or in terminal type:
-   python gui_mailer.py
+   Example list (lists/subscribers.txt):
+   John Doe,john@gmail.com
+   Mary Smith,mary@yahoo.com
 
-First start — quick setup wizard
-────────────────────────────────
-When you run it the first time:
-1. Click “Add Sender” → fill in:
-   • SMTP server (gmail.com, smtp-mail.outlook.com, etc.)
-   • Port (587 or 465)
-   • Your email + password/app-password
-   • SOCKS5 proxy host & port (example: 127.0.0.1   9050 for Tor)
-2. Click “Save & Test Connection” — it will tell you instantly if it works
-3. (Optional) Add more sender accounts or more proxies for rotation
+5. PERSONALIZATION TAGS (Auto-replace in HTML letters)
+   {{name}}           → Full name (John Doe)
+   {{first_name}}     → First name only (John)
+   {{email}}          → Full email
+   {{username}}       → Part before @ (john)
+   {{domain}}         → Part after @ (gmail.com)
+   {{company}}        → Guessed company from domain (Google, Yahoo, Microsoft, etc.)
+   {{date}}           → Today’s date (November 30, 2025)
+   {{year}}           → 2025
 
-How to send a real campaign
-───────────────────────────
-1. Put your HTML letter in /letters (you can use images with normal <img src="…">)
-2. Put your recipient list in /lists (one email per line, or name,email if you want personalisation)
-3. Put attachments in /attachments folder or just drag them into the window
-4. Choose your sender account, letter, list, delay range
-5. Click START → watch the log in real time
+   Example in HTML:
+   Dear {{first_name}} from {{company}},
 
-Personalisation example
-───────────────────────
-If your list is:
-John,john@gmail.com
-Mary,mary@yahoo.com
+6. AUTO-GRAB COMMANDS (Copy-paste into letter)
+   These are the exact codes used by the mailer to extract data:
 
-and your letter contains  {{name}}  then it will become “Dear John”, “Dear Mary” automatically.
+   Full name:           {{name}}
+   First name:          {{first_name}}
+   Full email:          {{email}}
+   Username:            {{username}}
+   Domain:              {{domain}}
+   Company guess:       {{company}}
+   Today's date:        {{date}}
+   Current year:        {{year}}
 
-Safety & best practices
-───────────────────────
-• Use app-passwords (Gmail) or OAuth if possible
-• Never upload config.json with real passwords to GitHub
-• Test with 5–10 recipients first
-• Start with 15–60 second random delay
-• For maximum anonymity → run Tor Browser in background (it listens on 9050)
+7. HOW TO USE find_sender_emails.py (Grab emails from any text)
+   Put any text file with emails in the main folder → Run:
+   python3 find_sender_emails.py input.txt
+   → Creates found_emails.txt with clean list (one email per line)
 
-That’s it — you now have a full-featured, anonymous bulk mailer that looks professional and is extremely hard to trace.
+   Example:
+   python3 find_sender_emails.py messy_dump.txt
 
-Enjoy and stay safe!
+8. HOW TO USE send_via_socks5.py (Direct command-line send)
+   python3 send_via_socks5.py \
+     --smtp smtp.gmail.com \
+     --port 587 \
+     --email you@gmail.com \
+     --password "apppassword123" \
+     --proxy 127.0.0.1:9050 \
+     --to recipient@gmail.com \
+     --subject "Test" \
+     --html letters/welcome.html \
+     --attach attachments/contract.pdf
 
+9. BUILT-IN HTML EDITOR
+   Double-click editor.html → Opens in browser
+   Write or paste HTML → Save → It appears instantly in GUI dropdown
 
-Questions? Message the original author
+10. LOGS & BACKUPS
+   logs/                  → Every sent email logged with timestamp
+   qr_codes/              → Click "Backup Config" → QR code of all settings
+
+11. QUICK START CHECKLIST
+   [ ] Run: python3 gui_mailer.py
+   [ ] Add at least one sender + proxy
+   [ ] Put HTML in letters/
+   [ ] Put list in lists/
+   [ ] Drag attachments or use folder
+   [ ] Select everything → Click START
+
+12. PRO TIPS
+   • Use Gmail App Passwords (not real password)
+   • Tor = 127.0.0.1:9050 (run Tor Browser in background)
+   • Random delay 15–60 seconds avoids spam flags
+   • Never commit real config.json to GitHub!
+
+You now own one of the most powerful anonymous bulk mailers on the planet.
+Use responsibly. Stay invisible.
+
+– IDEYWITH231
+══════════════════════════════════════════════════════════
