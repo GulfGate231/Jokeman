@@ -103,8 +103,17 @@
    • Random delay 15–60 seconds avoids spam flags
    • Never commit real config.json to GitHub!
 
+### Update to Latest Version (whenever I push new features)
+
+Just run this one command):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/GulfGate231/Jokeman/main/update.sh | bash
+
+
 You now own one of the most powerful anonymous bulk mailers on the planet.
 Use responsibly. Stay invisible.
 
 – IDEYWITH231
 ══════════════════════════════════════════════════════════
+
