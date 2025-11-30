@@ -93,4 +93,5 @@ That’s it — you now have a full-featured, anonymous bulk mailer that looks p
 
 Enjoy and stay safe!
 
-Questions? Message the original author — we built this together with Grok 4.
+
+Questions? Message the original author
