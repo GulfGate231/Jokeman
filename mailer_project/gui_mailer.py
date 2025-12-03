@@ -59,13 +59,14 @@ class MailerGUI:
         single_frame = ttk.LabelFrame(tab_smtp, text="Single SMTP Account (used when rotation OFF)")
         single_frame.pack(fill="x", pady=10, padx=10)
 
+        # FIXED: All rows now have exactly 3 items (label, key, password_flag)
         rows = [
-    ("SMTP Host", "SINGLE_SMTP_HOST", False),
-    ("SMTP Port", "SINGLE_SMTP_PORT", False),
-    ("SMTP User (email)", "SINGLE_SMTP_USER", False),
-    ("SMTP Password", "SINGLE_SMTP_PASS", True),
-    ("Display Name", "SINGLE_SMTP_NAME", False),
-]
+            ("SMTP Host", "SINGLE_SMTP_HOST", False),
+            ("SMTP Port", "SINGLE_SMTP_PORT", False),
+            ("SMTP User (email)", "SINGLE_SMTP_USER", False),
+            ("SMTP Password", "SINGLE_SMTP_PASS", True),
+            ("Display Name", "SINGLE_SMTP_NAME", False),
+        ]
         self.single_vars = {}
         for label, key, password in rows:
             row = ttk.Frame(single_frame)
@@ -116,8 +117,9 @@ class MailerGUI:
         nb.add(tab_settings, text="Campaign")
 
         self.setting_vars = {}
+        # FIXED: All settings now have exactly 3 items (label, key, typ)
         settings = [
-            ("Subject Line", "EMAIL_SUBJECT"),
+            ("Subject Line", "EMAIL_SUBJECT", str),
             ("Max Threads", "MAX_THREADS", int),
             ("Delay Min (sec)", "DELAY_RANGE_MIN", float),
             ("Delay Max (sec)", "DELAY_RANGE_MAX", float),
@@ -162,8 +164,7 @@ class MailerGUI:
         self.update_attach_list()
 
     def toggle_rotation(self):
-        state = "normal" if self.rot_var.get() else "disabled"
-        # You can expand this later to show rotating accounts list if needed
+        pass  # Can expand later for rotating accounts UI
 
     def browse_file(self, var, ext):
         path = filedialog.askopenfilename(filetypes=[("Files", ext)])
