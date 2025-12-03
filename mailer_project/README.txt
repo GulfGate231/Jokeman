@@ -1,119 +1,117 @@
 ══════════════════════════════════════════════════════════
-           JOKEMAN MAILER – FULL FUNCTIONS & FEATURES GUIDE
+           ELITE INBOX MAILER 2025 – FULL FEATURES GUIDE
 ══════════════════════════════════════════════════════════
+Author: IDEYWITHU | Built for invisibility & domination
 
 1. MAIN SCRIPT TO RUN
    → python3 gui_mailer.py
-   This opens the full drag & drop GUI (best way)
+   Opens the full elite GUI (best & only way to use)
 
-2. CORE FILES & WHAT THEY DO
-   gui_mailer.py          → Main GUI + sending engine
-   send_via_socks5.py     → Core sending function (SOCKS5 + SMTP)
-   find_sender_emails.py  → Auto-grab sender emails from text/files
-   editor.html            → Built-in HTML letter editor (double-click to open)
-   config.json            → Stores all your senders & proxies (auto-created)
+2. CORE FILES & FOLDERS
+   gui_mailer.py           → Full GUI + config manager
+   send_via_socks5.py      → Core engine (rotating SMTP + proxies + bounce handling)
+   config.json             → Auto-saved settings (SMTP, delays, features)
+   blacklist.txt           → Auto-created: hard bounces & complaints
+   proxies.txt             → One SOCKS5 proxy per line (ip:port or ip:port:user:pass)
 
-3. HOW TO ADD SMTP + SOCKS5 PROXY (First time setup)
-   In GUI → Click "Add Sender" → Fill:
-   • Sender Name        : Anything (e.g. "Gmail 1")
-   • SMTP Server         : smtp.gmail.com / smtp-mail.outlook.com / etc.
-   • Port                : 587 (TLS) or 465 (SSL)
-   • Email               : yourreal@gmail.com
-   • Password            : App Password (Gmail) or real password
-   • SOCKS5 Proxy Host   : 127.0.0.1          ← Tor
-                         : or 123.45.67.89    ← paid/residential proxy
-   • SOCKS5 Port         : 9050 (Tor) or 1080 (most proxies)
-   → Click "Save & Test" → Green = working!
+   FOLDERS:
+   letters/      → Your HTML templates (template.html)
+   lists/        → contacts.csv (email column required)
+   attachments/  → PDF, HTML, EML, SVG, PNG, JPG (all supported)
+   qr/           → Auto-generated QR codes
+   logs/         → Full send log + blacklist updates
+   cache/        → Company logos from Clearbit
 
-   You can add unlimited senders & proxies → it rotates automatically.
+3. NEW FEATURES (ELITE TIER)
+   • Optional SMTP Rotation (single or multiple accounts)
+   • Full bounce handling (hard/soft/complaints) → auto-blacklist
+   • Full attachment support: PDF, HTML, EML, SVG (inline or attached)
+   • Inline SVG support (use {{inline_svg}} in HTML)
+   • Company logo auto-embed (Clearbit)
+   • QR code per recipient (optional)
+   • Human-like delays + warmup (first 30 emails extra slow)
+   • Clean headers: Message-ID, List-Unsubscribe, Reply-To
+   • 1×1 tracking pixel (optional, only if you own domain)
+   • Blacklist system (blacklist.txt auto-updated)
+   • Zero spoofing (From = real authenticated email)
 
-4. FOLDERS – WHERE TO PUT YOUR STUFF
-   letters/               → Put your HTML templates here (.html files)
-   lists/                → One recipient per line OR Name,Email
-   attachments/           → Files to attach OR drag directly into GUI
+4. HOW TO SET UP (30 seconds)
+   1. Run: python3 gui_mailer.py
+   2. SMTP Settings tab:
+      • Leave "Enable Rotation" OFF → use single Gmail/Outlook
+      • Fill: your.email@gmail.com + 16-char App Password
+   3. Paths tab:
+      • Select your HTML template (letters/template.html)
+      • Select your list (lists/contacts.csv)
+      • Drag files into Attachments box (PDF, SVG, etc.)
+   4. Campaign tab:
+      • Subject line with {{name}}, {{company}}
+      • Max Threads: 3–8 (safe)
+      • Enable Attachments: ON
+   5. Click "Save Config" → "LAUNCH CAMPAIGN"
 
-   Example list (lists/subscribers.txt):
-   John Doe,john@gmail.com
-   Mary Smith,mary@yahoo.com
-
-5. PERSONALIZATION TAGS (Auto-replace in HTML letters)
-   {{name}}           → Full name (John Doe)
-   {{first_name}}     → First name only (John)
-   {{email}}          → Full email
-   {{username}}       → Part before @ (john)
-   {{domain}}         → Part after @ (gmail.com)
-   {{company}}        → Guessed company from domain (Google, Yahoo, Microsoft, etc.)
-   {{date}}           → Today’s date (November 30, 2025)
-   {{year}}           → 2025
-
-   Example in HTML:
-   Dear {{first_name}} from {{company}},
-
-6. AUTO-GRAB COMMANDS (Copy-paste into letter)
-   These are the exact codes used by the mailer to extract data:
-
-   Full name:           {{name}}
-   First name:          {{first_name}}
-   Full email:          {{email}}
-   Username:            {{username}}
-   Domain:              {{domain}}
-   Company guess:       {{company}}
-   Today's date:        {{date}}
-   Current year:        {{year}}
-
-7. HOW TO USE find_sender_emails.py (Grab emails from any text)
-   Put any text file with emails in the main folder → Run:
-   python3 find_sender_emails.py input.txt
-   → Creates found_emails.txt with clean list (one email per line)
+5. PERSONALIZATION TAGS (use in your HTML)
+   {{name}}         → Full name (John Doe)
+   {{first_name}}   → First name (John)
+   {{email}}        → Full email
+   {{company}}      → Guessed company (Google, Microsoft, etc.)
+   {{domain}}       → Domain only (gmail.com)
+   {{inline_svg}}   → For inline SVG attachments (filename must contain "inline")
 
    Example:
-   python3 find_sender_emails.py messy_dump.txt
+   <img src="cid:company_logo" width="110">
+   <img src="cid:qr_code" width="160">
+   {{inline_svg}}
 
-8. HOW TO USE send_via_socks5.py (Direct command-line send)
-   python3 send_via_socks5.py \
-     --smtp smtp.gmail.com \
-     --port 587 \
-     --email you@gmail.com \
-     --password "apppassword123" \
-     --proxy 127.0.0.1:9050 \
-     --to recipient@gmail.com \
-     --subject "Test" \
-     --html letters/welcome.html \
-     --attach attachments/contract.pdf
+6. ATTACHMENTS — FULLY SUPPORTED
+   • PDF contracts, brochures
+   • HTML files (as attachment)
+   • EML (previous emails)
+   • SVG (inline or attached)
+   • PNG/JPG logos
+   Just drop files into attachments/ folder or drag into GUI
 
-9. BUILT-IN HTML EDITOR
-   Double-click editor.html → Opens in browser
-   Write or paste HTML → Save → It appears instantly in GUI dropdown
+7. BOUNCE HANDLING (Enterprise Grade)
+   • Hard bounces (550, user unknown) → auto-blacklisted
+   • Complaints & abuse reports → auto-blacklisted
+   • Soft bounces → retried next run
+   • blacklist.txt created automatically
 
-10. LOGS & BACKUPS
-   logs/                  → Every sent email logged with timestamp
-   qr_codes/              → Click "Backup Config" → QR code of all settings
+8. PROXIES (SOCKS5 ONLY)
+   Create proxies.txt:
+   185.246.86.136:1080
+   45.89.123.45:1080:user:pass
+   102.33.44.55:1080
+   → One proxy per thread → perfect reputation isolation
+
+9. TEST EMAIL
+   In GUI → Click "Test Email" → enter your email
+   Or command line:
+   python3 send_via_socks5.py --test youremail@gmail.com
+
+10. ONE-CLICK UPDATE TO LATEST VERSION (2025+)
+    Run this single command anytime:
+```bash
+rm -rf ~/Jokeman-main && curl -L https://github.com/GulfGate231/Jokeman/archive/refs/heads/main.zip -o Jokeman.zip && unzip -o Jokeman.zip && cd Jokeman-main/mailer_project && pip3 install -r requirements.txt --upgrade && python3 gui_mailer.py
 
 11. QUICK START CHECKLIST
-   [ ] Run: python3 gui_mailer.py
-   [ ] Add at least one sender + proxy
-   [ ] Put HTML in letters/
-   [ ] Put list in lists/
-   [ ] Drag attachments or use folder
-   [ ] Select everything → Click START
+[ ] Run gui_mailer.py
+[ ] Add your Gmail + App Password
+[ ] Put template.html in letters/
+[ ] Put contacts.csv in lists/
+[ ] Add attachments (optional)
+[ ] Set subject with {{name}}
+[ ] Click LAUNCH CAMPAIGN
+PRO TIPS FOR 99% PRIMARY INBOX
+• Use warmed-up Gmail/Outlook (50–100 sent before bulk)
+• Residential or mobile SOCKS5 proxies
+• Random delay 14–42 seconds
+• Never spoof From address
+• Include List-Unsubscribe
+• Use real display name
+• Keep volume under 200/day per account
 
-12. PRO TIPS
-   • Use Gmail App Passwords (not real password)
-   • Tor = 127.0.0.1:9050 (run Tor Browser in background)
-   • Random delay 15–60 seconds avoids spam flags
-   • Never commit real config.json to GitHub!
-
-### Update to Latest Version (whenever I push new features)
-
-Just run this one command):
-
-```bash
-curl -sSL https://raw.githubusercontent.com/GulfGate231/Jokeman/main/update.sh | bash
-
-
-You now own one of the most powerful anonymous bulk mailers on the planet.
-Use responsibly. Stay invisible.
-
-– IDEYWITH231
 ══════════════════════════════════════════════════════════
-
+Use responsibly. Stay in Primary. Stay invisible.
+– IDEYWITH | 2025 JOKE MAN MAILER
+══════════════════════════════════════════════════════════
