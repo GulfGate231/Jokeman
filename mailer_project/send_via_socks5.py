@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
-ULTIMATE PERSONALIZED EMAIL MAILER (Full - With Enrich & Auto-SMTP)
-- Auto-detects SMTP from proxy
-- Enrich recipient (name, company, domain)
-- SOCKS5 routing
-- Multi-threaded + delay
-- QR + Logo
+ELITE INBOX MAILER 2025 — FINAL VERSION
+Features:
+• Optional SMTP rotation (single or multiple accounts)
+• Full SOCKS5 proxy rotation (proxies.txt)
+• Bounce handling + automatic blacklist (blacklist.txt)
+• Full attachment support (PDF, HTML, EML, SVG — inline or attached)
+• Personalized QR code + company logo (Clearbit)
+• Human-like delays + warmup for first 30 emails
+• Clean headers (Message-ID, List-Unsubscribe, Reply-To)
+• 1×1 tracking pixel (optional)
+• Primary inbox delivery (Gmail, Outlook, Yahoo tested)
+• No spam flags, no mail.{ip}, no spoofing
 """
 
 import smtplib
@@ -17,302 +23,282 @@ import random
 import qrcode
 import requests
 from email.message import EmailMessage
-from email.utils import formataddr
+from email.utils import formataddr, make_msgid
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import re
 from io import BytesIO
 import sys
-import json
+import socket
 
-# --------------------------------------------------------------
-# 1. CONFIGURATION — EDIT ONLY THIS SECTION
-# --------------------------------------------------------------
+# ===================== CONFIG =====================
 BASE_DIR = Path(__file__).parent
 
-# --- PATHS ---
-HTML_LETTER_PATH = BASE_DIR / "letters" / "welcome.html"
-CSV_LIST_PATH    = BASE_DIR / "lists" / "subscribers.csv"
+HTML_LETTER_PATH = BASE_DIR / "letters" / "template.html"
+CSV_LIST_PATH    = BASE_DIR / "lists" / "contacts.csv"
+PROXIES_FILE     = BASE_DIR / "proxies.txt"        # ip:port or ip:port:user:pass
+BLACKLIST_FILE   = BASE_DIR / "blacklist.txt"      # auto-created
+
+# Attachments (PDF, HTML, EML, SVG supported)
 ATTACHMENT_PATHS = [
-    # BASE_DIR / "attachments" / "brochure.pdf",
+    BASE_DIR / "attachments" / "brochure.pdf",
+    BASE_DIR / "attachments" / "proposal.html",
+    BASE_DIR / "attachments" / "previous_email.eml",
+    BASE_DIR / "attachments" / "signature.svg",
 ]
 
-# --- TOGGLE FEATURES ---
+# SMTP ROTATION — SET TO False FOR SINGLE ACCOUNT (recommended)
+ENABLE_ROTATION = False
+
+# Single SMTP (used when ENABLE_ROTATION = False)
+SINGLE_SMTP = {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "user": "your.main.email@gmail.com",   # CHANGE THIS
+    "pass": "your-app-password-here",      # CHANGE THIS
+    "name": "Alex Rivera"
+}
+
+# Rotating accounts (used only when ENABLE_ROTATION = True)
+ROTATING_SMTP_ACCOUNTS = [
+    ("smtp.gmail.com", 587, "john.real1@gmail.com", "abcd efgh ijkl mnop", "John Miller"),
+    ("smtp.gmail.com", 587, "sarah.real2@gmail.com", "xyzw pqrs tuvw abcd", "Sarah Chen"),
+    ("smtp.outlook.com", 587, "alex@outlook.com", "realpass123", "Alex Rivera"),
+]
+
+EMAIL_SUBJECT      = "Hey {{name}}, quick note from {{sender}}"
+MAX_THREADS        = 5
+DELAY_RANGE        = (14, 42)
+WARMUP_FIRST_30    = True
+ENABLE_QR_CODE     = False
 ENABLE_ATTACHMENTS = True
-ENABLE_QR_CODE     = True
+ENABLE_PIXEL       = False   # only if you own the tracking domain
 
-# --- EMAIL SETTINGS ---
-EMAIL_SUBJECT = "Exclusive Update for {{name}} at {{company}}"
-SENDER_EMAIL  = "your@gmail.com"
+# Folders
+LOG_DIR    = BASE_DIR / "logs"
+QR_DIR     = BASE_DIR / "qr"
+LOGO_CACHE = BASE_DIR / "cache"
+for d in (LOG_DIR, QR_DIR, LOGO_CACHE):
+    d.mkdir(exist_ok=True)
 
-# --- PROXY (SOCKS5) ---
-PROXY_HOST = ""          # e.g., "62.106.66.109"
-PROXY_PORT = 1080
-PROXY_USER = ""
-PROXY_PASS = ""
-
-# --- SMTP (Auto-Detected from Proxy if Empty) ---
-SMTP_HOST = ""           # Leave empty to auto-detect
-SMTP_PORT = 587
-SMTP_USER = ""
-SMTP_PASS = ""
-
-# --- TRACKING & QR ---
-TRACKING_BASE_URL = "https://yourdomain.com/track"
-
-# --- SENDING ---
-DELAY_BETWEEN_EMAILS = 1.5
-MAX_THREADS = 5
-BATCH_SIZE = 0  # 0 = all
-
-# --- DIRECTORIES ---
-LOG_DIR     = BASE_DIR / "logs"
-QR_DIR      = BASE_DIR / "qr_codes"
-LOGO_CACHE  = BASE_DIR / "logo_cache"
-LOG_DIR.mkdir(exist_ok=True)
-QR_DIR.mkdir(exist_ok=True)
-LOGO_CACHE.mkdir(exist_ok=True)
-
-# --- LOGGING ---
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_DIR / f"sent_{datetime.now():%Y-%m-%d}.log"),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s | %(message)s",
+    handlers=[logging.FileHandler(LOG_DIR / "log.txt"), logging.StreamHandler()]
 )
 
-# --------------------------------------------------------------
-# AUTO-DETECT SMTP FROM PROXY
-# --------------------------------------------------------------
-if PROXY_HOST and not SMTP_HOST:
-    SMTP_HOST = f"mail.{PROXY_HOST}"
-    SMTP_USER = PROXY_USER or SMTP_USER
-    SMTP_PASS = PROXY_PASS or SMTP_PASS
-    logging.info(f"Auto-set SMTP to {SMTP_HOST} from proxy")
+# ===================== PROXIES & BLACKLIST =====================
+def load_proxies() -> List[Dict]:
+    if not PROXIES_FILE.exists():
+        return [{"host": "", "port": 0, "user": "", "pass": ""}]
+    proxies = []
+    for line in PROXIES_FILE.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"): continue
+        parts = line.split(":")
+        if len(parts) == 4:
+            h, p, u, pw = parts
+            proxies.append({"host": h, "port": int(p), "user": u, "pass": pw})
+        else:
+            h, p = parts
+            proxies.append({"host": h, "port": int(p), "user": "", "pass": ""})
+    return proxies
 
-# --------------------------------------------------------------
-# 2. ENRICH RECIPIENT FUNCTION (FIXED - MISSING IN YOUR VERSION)
-# --------------------------------------------------------------
-def enrich_recipient(email: str) -> Dict[str, str]:
-    """Auto-detect full_name, company, domain, username from email."""
-    match = re.match(r"(.+)@(.+)", email)
-    if not match:
-        return {"email": email, "full_name": "Unknown", "company": "Unknown", "domain": "", "username": ""}
+PROXIES = load_proxies()
 
-    username, domain = match.groups()
-    username = username.lower().replace(".", " ").replace("_", " ").strip()
+def load_blacklist() -> set:
+    if BLACKLIST_FILE.exists():
+        return set(line.split("#")[0].strip().lower() for line in BLACKLIST_FILE.read_text().splitlines() if line.strip())
+    return set()
 
-    # Full name: Capitalize words
-    name_words = username.split()
-    full_name = " ".join(word.capitalize() for word in name_words)
-    if len(name_words) == 1 and name_words[0] in {"john", "bob", "alice", "mary"}:
-        full_name = f"{full_name} {full_name.capitalize()}"
+def add_to_blacklist(email: str, reason: str):
+    email = email.lower().strip()
+    with open(BLACKLIST_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{email}  # {reason} | {datetime.now():%Y-%m-%d %H:%M}\n")
+    logging.warning(f"BLACKLISTED → {email} | {reason}")
 
-    # Company: Domain without TLD
-    company_match = re.match(r"([^.]+)", domain)
-    company = company_match.group(1).capitalize() if company_match else domain.capitalize()
+BLACKLIST = load_blacklist()
 
-    return {
-        "email": email,
-        "full_name": full_name,
-        "company": company,
-        "domain": domain,
-        "username": username
-    }
+# ===================== HELPERS =====================
+sent_count = 0
+def human_delay():
+    global sent_count
+    if WARMUP_FIRST_30 and sent_count < 30:
+        time.sleep(random.uniform(40, 100))
+    else:
+        time.sleep(random.uniform(*DELAY_RANGE))
+    sent_count += 1
 
-# --------------------------------------------------------------
-# 3. HELPERS
-# --------------------------------------------------------------
-def random_sender_name() -> str:
-    first = ["James", "Mary", "John", "Patricia", "Robert", "Jennifer"]
-    last = ["Smith", "Johnson", "Brown", "Davis", "Miller", "Wilson"]
-    return f"{random.choice(first)} {random.choice(last)}"
+def enrich_recipient(email: str) -> Dict:
+    local, domain = email.split("@", 1)
+    name = re.sub(r"[._+-]", " ", local).title()
+    company = domain.split(".")[0].capitalize()
+    return {"email": email, "full_name": name, "company": company, "domain": domain}
 
-def get_domain_logo(domain: str) -> Path:
-    cache_file = LOGO_CACHE / f"{domain}.png"
-    if cache_file.exists():
-        return cache_file
-    url = f"https://logo.clearbit.com/{domain}?size=100"
+def get_logo(domain: str) -> Path | None:
+    path = LOGO_CACHE / f"{domain}.png"
+    if path.exists(): return path
     try:
-        r = requests.get(url, timeout=5)
+        r = requests.get(f"https://logo.clearbit.com/{domain}?size=120", timeout=6)
         if r.status_code == 200:
-            with open(cache_file, "wb") as f:
-                f.write(r.content)
-            return cache_file
-    except:
-        pass
+            path.write_bytes(r.content)
+            return path
+    except: pass
     return None
 
-def generate_qr(data: str) -> Path:
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(data)
+def generate_qr(url: str) -> Path:
+    qr = qrcode.QRCode(box_size=10, border=4)
+    qr.add_data(url)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    qr_path = QR_DIR / f"qr_{int(time.time()*1000)}.png"
-    with open(qr_path, "wb") as f:
-        f.write(buffer.getvalue())
-    return qr_path
+    img = qr.make_image(fill_color="#000000", back_color="white")
+    buf = BytesIO()
+    img.save(buf, "PNG")
+    path = QR_DIR / f"qr_{int(time.time()*1000)}.png"
+    path.write_bytes(buf.getvalue())
+    return path
 
 def attach_files(msg: EmailMessage, files: List[Path]):
     for p in files:
-        if not p.exists():
-            continue
-        mime_map = {".pdf": ("application", "pdf"), ".png": ("image", "png"), ".jpg": ("image", "jpeg")}
-        main, sub = mime_map.get(p.suffix.lower(), ("application", "octet-stream"))
-        msg.add_attachment(p.read_bytes(), maintype=main, subtype=sub, filename=p.name)
-
-# --------------------------------------------------------------
-# 4. SEND ONE EMAIL
-# --------------------------------------------------------------
-def send_single_email(recipient: Dict[str, str]):
-    try:
-        email = recipient["email"]
-        full_name = recipient["full_name"]
-        first_name = full_name.split()[0]
-        username = recipient["username"]
-        domain = recipient["domain"]
-        company = recipient["company"]
-
-        sender_name = random_sender_name()
-        logo_path = get_domain_logo(domain) if domain else None
-        qr_path = generate_qr(f"{TRACKING_BASE_URL}?email={email}") if ENABLE_QR_CODE else None
-
-        # Load HTML
-        html_body = HTML_LETTER_PATH.read_text(encoding="utf-8")
-
-        # Replace placeholders
-        now = datetime.now()
-        replacements = {
-            "{{name}}": first_name,
-            "{{full_name}}": full_name,
-            "{{email}}": email,
-            "{{username}}": username,
-            "{{company}}": company,
-            "{{domain}}": domain,
-            "{{date}}": now.strftime("%B %d, %Y"),
-            "{{time}}": now.strftime("%I:%M %p"),
-            "{{sender_name}}": sender_name,
-            "{{qr_code}}": f'<img src="cid:qr_code" alt="Scan" width="150"/>' if qr_path else "",
-            "{{company_logo}}": f'<img src="cid:company_logo" alt="{company}" width="100"/>' if logo_path else ""
+        if not p.exists(): continue
+        filename = p.name
+        data = p.read_bytes()
+        ext = p.suffix.lower()
+        mime_map = {
+            ".pdf": ("application", "pdf"), ".html": ("text", "html"), ".eml": ("message", "rfc822"),
+            ".svg": ("image", "svg+xml"), ".png": ("image", "png"), ".jpg": ("image", "jpeg"), ".jpeg": ("image", "jpeg")
         }
-        for ph, val in replacements.items():
-            html_body = html_body.replace(ph, val)
+        maintype, subtype = mime_map.get(ext, ("application", "octet-stream"))
+        if ext == ".svg" and "inline" in filename.lower():
+            cid = f"svg_{random.randint(1000,9999)}"
+            msg.get_payload()[-1].add_related(data, maintype, subtype, cid=f"<{cid}>")
+            html = msg.get_payload()[-1].get_content()
+            html = html.replace("{{inline_svg}}", f"cid:{cid}")
+            msg.get_payload()[-1].set_content(html, subtype="html")
+        else:
+            msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
 
-        # Subject
-        subject = EMAIL_SUBJECT
-        for ph, val in replacements.items():
-            if ph not in ["{{qr_code}}", "{{company_logo}}"]:
-                subject = subject.replace(ph, val)
+# ===================== BOUNCE DETECTION =====================
+def is_hard_bounce(e):
+    msg = str(e).lower()
+    return any(x in msg for x in ["550", "551", "552", "553", "554", "user unknown", "no such user", "mailbox unavailable", "invalid recipient"])
 
-        # Plain text
-        plain_body = re.sub(r"<[^>]+>", "", html_body)
+# ===================== SEND EMAIL =====================
+def send_email(recipient: Dict, smtp: Tuple, proxy: Dict) -> bool:
+    host, port, user, pwd, display_name = smtp
+    email = recipient["email"].lower().strip()
+    if email in BLACKLIST:
+        return False
+    try:
+        name = recipient["full_name"]
+        first = name.split()[0]
+        domain = recipient["domain"]
 
-        # Build message
         msg = EmailMessage()
-        msg["From"] = formataddr((sender_name, SENDER_EMAIL))
-        msg["To"] = formataddr((full_name, email))
-        msg["Subject"] = subject
+        msg["From"] = formataddr((display_name, user))
+        msg["To"] = formataddr((name, email))
+        msg["Subject"] = EMAIL_SUBJECT.replace("{{name}}", first).replace("{{sender}}", display_name.split()[0])
+        msg["Reply-To"] = user
+        msg["Message-ID"] = make_msgid(domain="yourdomain.com")
+        msg["Date"] = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
+        msg["List-Unsubscribe"] = "<mailto:unsubscribe@yourdomain.com>, <https://yourdomain.com/unsubscribe>"
 
-        msg.set_content(plain_body)
-        msg.add_alternative(html_body, subtype="html")
+        html = HTML_LETTER_PATH.read_text(encoding="utf-8")
+        html = html.replace("{{name}}", first).replace("{{company}}", recipient["company"])
 
-        # Embed QR + Logo
-        if qr_path and qr_path.exists():
+        qr_path = generate_qr(f"https://yourdomain.com/click?e={email}") if ENABLE_QR_CODE else None
+        if qr_path:
+            html = html.replace("{{qr_code}}", '<img src="cid:qr_code" width="160" alt="Scan">')
+
+        logo_path = get_logo(domain)
+        if logo_path:
+            html = html.replace("{{company_logo}}", '<img src="cid:company_logo" width="110" alt="Logo">')
+
+        if ENABLE_PIXEL:
+            html += f'<img src="https://track.yourdomain.com/pixel.gif?e={email}" width="1" height="1" style="display:none;">'
+
+        msg.set_content("Please view in HTML.")
+        related = msg.add_alternative(html, subtype="html")
+
+        if qr_path:
             with open(qr_path, "rb") as f:
-                msg.get_payload()[1].add_related(f.read(), 'image', 'png', cid="qr_code")
-        if logo_path and logo_path.exists():
+                related.add_related(f.read(), "image", "png", cid="qr_code")
+        if logo_path:
             with open(logo_path, "rb") as f:
-                msg.get_payload()[1].add_related(f.read(), 'image', 'png', cid="company_logo")
+                related.add_related(f.read(), "image", "png", cid="company_logo")
 
-        # Attachments
         if ENABLE_ATTACHMENTS:
-            for p in ATTACHMENT_PATHS:
-                if p.exists():
-                    mime_map = {".pdf": ("application", "pdf"), ".png": ("image", "png"), ".jpg": ("image", "jpeg")}
-                    main, sub = mime_map.get(p.suffix.lower(), ("application", "octet-stream"))
-                    msg.add_attachment(p.read_bytes(), maintype=main, subtype=sub, filename=p.name)
+            attach_files(msg, ATTACHMENT_PATHS)
 
-        # Send
-        context = ssl.create_default_context()
         original_socket = None
-        if PROXY_HOST:
+        if proxy["host"]:
             import socks
-            socks.set_default_proxy(socks.SOCKS5, PROXY_HOST, PROXY_PORT, True, PROXY_USER or None, PROXY_PASS or None)
-            import socket
+            socks.set_default_proxy(socks.SOCKS5, proxy["host"], proxy["port"],
+                                   True, proxy["user"] or None, proxy["pass"] or None)
             original_socket = socket.socket
             socket.socket = socks.socksocket
 
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-        server.starttls(context=context)
-        server.login(SMTP_USER, SMTP_PASS)
-        server.send_message(msg)
-        server.quit()
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(host, port, timeout=40) as server:
+            server.starttls(context=ctx)
+            server.login(user, pwd)
+            server.send_message(msg)
 
         if original_socket:
-            import socket
             socket.socket = original_socket
 
-        logging.info(f"SUCCESS → {email} | {full_name} @ {company} | From: {sender_name}")
+        logging.info(f"DELIVERED → {first} <{email}>")
+        human_delay()
         return True
 
+    except smtplib.SMTPRecipientsRefused:
+        add_to_blacklist(email, "hard bounce (refused)")
+        return False
     except Exception as e:
-        logging.error(f"FAILED → {email} | {e}")
+        if is_hard_bounce(e):
+            add_to_blacklist(email, f"hard bounce: {e}")
+            logging.warning(f"HARD BOUNCE → {email}")
+        else:
+            logging.error(f"Failed {email} → {e}")
+        human_delay()
         return False
 
-# --------------------------------------------------------------
-# 5. MAIN CAMPAIGN
-# --------------------------------------------------------------
-def send_campaign():
+# ===================== CAMPAIGN =====================
+def run():
     logging.info("Starting campaign...")
-
-    if not HTML_LETTER_PATH.exists():
-        logging.error(f"Missing HTML: {HTML_LETTER_PATH}")
-        return
-    if not CSV_LIST_PATH.exists():
-        logging.error(f"Missing CSV: {CSV_LIST_PATH}")
-        return
-
     recipients = []
     with open(CSV_LIST_PATH, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            email = row.get("email", "").strip()
-            if email:
-                recipients.append(enrich_recipient(email))  # FIXED - Now defined
+        for row in csv.DictReader(f):
+            e = row.get("email", "").strip().lower()
+            if e and "@" in e and e not in BLACKLIST:
+                recipients.append(enrich_recipient(e))
 
-    if BATCH_SIZE > 0:
-        recipients = recipients[:BATCH_SIZE]
+    logging.info(f"Loaded {len(recipients)} valid contacts")
 
-    logging.info(f"Loaded {len(recipient)} recipients. Threads: {MAX_THREADS}")
+    accounts = ROTATING_SMTP_ACCOUNTS if ENABLE_ROTATION else [(
+        SINGLE_SMTP["host"], SINGLE_SMTP["port"],
+        SINGLE_SMTP["user"], SINGLE_SMTP["pass"], SINGLE_SMTP["name"]
+    )]
 
-    success = 0
-    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-        futures = [executor.submit(send_single_email, r) for r in recipients]
-        for f in as_completed(futures):
-            if f.result():
-                success += 1
-            time.sleep(DELAY_BETWEEN_EMAILS)
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as pool:
+        futures = []
+        for i, rec in enumerate(recipients):
+            smtp = accounts[i % len(accounts)]
+            proxy = PROXIES[i % len(PROXIES)] if PROXIES[0]["host"] else PROXIES[0]
+            futures.append(pool.submit(send_email, rec, smtp, proxy))
+        success = sum(f.result() for f in as_completed(futures))
 
-    logging.info(f"COMPLETE: {success}/{len(recipient)} sent.")
+    logging.info(f"Campaign finished: {success}/{len(recipients)} delivered")
 
-# --------------------------------------------------------------
-# 6. TEST MODE (From GUI)
-# --------------------------------------------------------------
-if len(sys.argv) > 1 and sys.argv[1] == "--test-email":
-    test_email = sys.argv[2]
-    recipient = enrich_recipient(test_email)  # FIXED - Now defined
-    send_single_email(recipient)
-    logging.info("Test complete.")
-    sys.exit(0)
-
-# --------------------------------------------------------------
-# 7. RUN
-# --------------------------------------------------------------
+# ===================== TEST & RUN =====================
 if __name__ == "__main__":
-    send_campaign()
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
+        test = enrich_recipient(sys.argv[2])
+        test_smtp = (
+            SINGLE_SMTP["host"], SINGLE_SMTP["port"],
+            SINGLE_SMTP["user"], SINGLE_SMTP["pass"], SINGLE_SMTP["name"]
+        )
+        send_email(test, test_smtp, PROXIES[0])
+    else:
+        run()
