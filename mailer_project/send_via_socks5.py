@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""
-ELITE INBOX MAILER 2025 — FINAL VERSION
-Features:
-• Optional SMTP rotation (single or multiple accounts)
-• Full SOCKS5 proxy rotation (proxies.txt)
-• Bounce handling + automatic blacklist (blacklist.txt)
-• Full attachment support (PDF, HTML, EML, SVG — inline or attached)
-• Personalized QR code + company logo (Clearbit)
-• Human-like delays + warmup for first 30 emails
-• Clean headers (Message-ID, List-Unsubscribe, Reply-To)
-• 1×1 tracking pixel (optional)
-• Primary inbox delivery (Gmail, Outlook, Yahoo tested)
-• No spam flags, no mail.{ip}, no spoofing
-"""
-
 import smtplib
 import ssl
 import csv
