@@ -60,12 +60,12 @@ class MailerGUI:
         single_frame.pack(fill="x", pady=10, padx=10)
 
         rows = [
-            ("SMTP Host", "SINGLE_SMTP_HOST"),
-            ("SMTP Port", "SINGLE_SMTP_PORT"),
-            ("SMTP User (email)", "SINGLE_SMTP_USER"),
-            ("SMTP Password", "SINGLE_SMTP_PASS", True),
-            ("Display Name", "SINGLE_SMTP_NAME"),
-        ]
+    ("SMTP Host", "SINGLE_SMTP_HOST", False),
+    ("SMTP Port", "SINGLE_SMTP_PORT", False),
+    ("SMTP User (email)", "SINGLE_SMTP_USER", False),
+    ("SMTP Password", "SINGLE_SMTP_PASS", True),
+    ("Display Name", "SINGLE_SMTP_NAME", False),
+]
         self.single_vars = {}
         for label, key, password in rows:
             row = ttk.Frame(single_frame)
